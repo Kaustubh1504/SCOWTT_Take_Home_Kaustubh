@@ -7,7 +7,6 @@ import { Prisma } from "@/generated/prisma/client";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const CACHE_WINDOW_SECONDS = 60;
 
-// Define strict types for the transaction orchestration
 type TransactionResult = {
   action: "RETURN_CACHED" | "RETURN_FALLBACK" | "RETURN_WAIT" | "GENERATE";
   payload?: {

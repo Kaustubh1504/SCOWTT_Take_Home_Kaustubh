@@ -1,37 +1,97 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Movie Memory
 
-## Getting Started
+Movie Memory is a full-stack Next.js application that leverages OpenAI to provide users with fun, lesser-known facts about their favorite movies. This project was built as part of a technical take-home exercise.
 
-First, run the development server:
+##  Setup Instructions
+
+### 1\. Prerequisites
+
+  * Node.js (v18 or later)
+  * PostgreSQL database
+  * Google OAuth credentials (via Google Cloud Console)
+  * OpenAI API Key
+
+### 2\. Environment Variables
+
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Database (Supabase)
+DATABASE_URL="postgresql://user:password@host:5432/database"
+
+# NextAuth
+NEXTAUTH_SECRET="generate-with-openssl-rand-base64-32"
+NEXTAUTH_URL="http://localhost:3000"
+
+# Google OAuth
+GOOGLE_CLIENT_ID="your-client-id"
+GOOGLE_CLIENT_SECRET="your-client-secret"
+
+# OpenAI
+OPENAI_API_KEY="sk-your-key"
+```
+
+### 3\. Installation & Database Setup
+
+```bash
+npm install
+
+npx prisma migrate dev
+
+npx prisma generate
+```
+
+### 4\. Running the App
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](https://www.google.com/search?q=http://localhost:3000) to view the application.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+-----
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+##  Architecture Overview
 
-## Learn More
+The application is built using the **Next.js 15 App Router** and **Prisma ORM**.
 
-To learn more about Next.js, take a look at the following resources:
+### Data Modeling
+<img src="/public/datamodel.png" alt="Alt text" width="500"/>
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+The schema is modularized into multiple files under `prisma/schema/` for better maintainability:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+  * **`User`**: Stores core profile data and the `favoriteMovie` preference.
+  * **`Fact`**: Stores generated trivia with a `FactStatus` enum (`PENDING`, `COMPLETED`, `FAILED`) to track the lifecycle of an AI request.
+  * **`Account/Session`**: Standard Auth.js models for Google OAuth integration.
 
-## Deploy on Vercel
+### Backend Logic (Variant A Implementation)
+<img src="/public/movie_fact_api_flow.svg" alt="Alt text" width="100px" height="100px" />
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+I chose **Variant A (Backend-Focused)** to demonstrate high-level consistency and concurrency control.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-# SCOWTT_Take_Home_Kaustubh
+  * **60-Second Cache Window**: The system checks for existing `COMPLETED` facts for the specific user and movie within the last 60 seconds before triggering a new AI call.
+  * **Burst Protection (Concurrency)**: To prevent multiple simultaneous OpenAI calls (e.g., from multiple tabs), the API uses a **Prisma transaction with `Serializable` isolation**. It creates a `PENDING` record as a "lock." If another request arrives while a fact is `PENDING`, the system returns a `202 Accepted` status or a previous cached fact.
+  * **Failure Handling**: If the OpenAI API fails, the backend automatically scavenges the most recent successful fact from history to ensure the user still sees content.
+
+-----
+
+## ⚖️ Key Tradeoffs
+
+1.  **Transaction Isolation Level**: I used `Serializable` isolation for the locking mechanism. While this ensures the highest level of correctness against race conditions, it can lead to serialization failures under extremely high write loads. I mitigated this by catching `P2034` errors and providing a fallback response.
+2.  **Server Actions vs. Route Handlers**: I used Server Actions for simple mutations like Sign Out but kept the Fact Generation in a standard Route Handler to allow the client-side `useEffect` and "Refresh" button to fetch data easily using standard browser `fetch`.
+
+-----
+
+## ⏳ If I Had 2 More Hours...
+
+1.  **In-Memory Caching (Redis)**: For high-scale production, I would move the "Generation Lock" from the database to Redis to reduce DB load and latency.
+2.  **Comprehensive Testing**: I would implement integration tests using Playwright to verify the end-to-end onboarding flow and Vitest for mocking the OpenAI failure states.
+3.  **Search/Autocomplete**: I would add a movie search API (like TMDB) to the onboarding flow to ensure movie titles are standardized, which would make caching much more effective.
+
+-----
+
+## 🤖 AI Usage Disclosure
+
+  * **Boilerplate Generation**: Used AI to scaffold the initial NextAuth configuration and Tailwind UI components for the Dashboard.
+  * **Logic Refinement**: Used AI to help debug the Prisma `Serializable` transaction logic to ensure the race-condition protection was robust.
+  * **Documentation**: Used AI to help structure this README based on the project requirements.
