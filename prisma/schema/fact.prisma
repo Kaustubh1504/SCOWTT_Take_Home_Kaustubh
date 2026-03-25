@@ -1,0 +1,20 @@
+model Fact {
+  id           String     @id @default(cuid())
+  userId       String     @map("user_id")
+  movie        String
+  content      String?
+  status       FactStatus @default(PENDING)
+  generationId String?    @unique @map("generation_id")
+  createdAt    DateTime   @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, movie, createdAt])
+  @@map("facts")
+}
+
+enum FactStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
