@@ -100,3 +100,17 @@ I chose **Variant A (Backend-Focused)** to demonstrate high-level consistency an
   * **Boilerplate Generation**: Used AI to scaffold the initial NextAuth configuration and Tailwind UI components for the Dashboard.
   * **Logic Refinement**: Used AI to help debug the Prisma `Serializable` transaction logic to ensure the race-condition protection was robust.
   * **Documentation**: Used AI to help structure this README based on the project requirements.
+
+## Additional References & Resources
+
+### Architecture & Concurrency
+* [Prisma Serializable Transactions](https://www.prisma.io/docs/orm/prisma-client/queries/transactions#serializable) - Technical basis for the burst protection logic.
+* [Supabase Connection Management](https://supabase.com/docs/guides/database/connecting-to-postgres#connection-pooler) - Rationale for using Transaction Pooling (Port 6543) in serverless environments.
+
+### Security & Authentication
+* [Auth.js (v5) Documentation](https://authjs.dev/reference/nextjs) - Reference for the Next.js App Router authentication flow.
+* [Google OAuth Scopes & Redirects](https://developers.google.com/identity/protocols/oauth2) - Standard for secure callback URI configuration.
+
+### Tooling
+* [Vitest](https://vitest.dev/) - Used for backend unit testing of the cache and authorization logic.
+* [Repomix](https://github.com/kakaue/repomix) - Used to bundle the repository for AI-assisted review and analysis.
