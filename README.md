@@ -95,7 +95,7 @@ I chose **Variant A (Backend-Focused)** to demonstrate high-level consistency an
 
 -----
 
-## 🤖 AI Usage Disclosure
+## AI Usage Disclosure
 
   * **Boilerplate Generation**: Used AI to scaffold the initial NextAuth configuration and Tailwind UI components for the Dashboard.
   * **Logic Refinement**: Used AI to help debug the Prisma `Serializable` transaction logic to ensure the race-condition protection was robust.

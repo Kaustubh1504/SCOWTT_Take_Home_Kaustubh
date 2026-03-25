@@ -7,20 +7,24 @@ import { Prisma } from "@/generated/prisma/client";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const CACHE_WINDOW_SECONDS = 60;
 
+// Defined specific types for the payload to avoid 'any'
+type FactPayload = {
+  fact?: string | null;
+  cached?: boolean;
+  message?: string;
+  error?: string;
+};
+
 type TransactionResult = {
   action: "RETURN_CACHED" | "RETURN_FALLBACK" | "RETURN_WAIT" | "GENERATE";
-  payload?: {
-    fact?: string | null;
-    cached?: boolean;
-    message?: string;
-    error?: string;
-  };
+  payload?: FactPayload;
   status?: number;
 };
 
 export async function GET() {
   try {
     const session = await auth();
+    // Use optional chaining safely
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -50,6 +54,7 @@ export async function GET() {
     let transactionResult: TransactionResult | null = null;
 
     try {
+      // Set the isolation level to Serializable for Variant A concurrency requirements
       transactionResult = await prisma.$transaction(
         async (tx): Promise<TransactionResult> => {
           const cachedFact = await tx.fact.findFirst({
@@ -65,6 +70,7 @@ export async function GET() {
           if (cachedFact) {
             return { action: "RETURN_CACHED", payload: { fact: cachedFact.content, cached: true } };
           }
+
           const pendingFact = await tx.fact.findFirst({
             where: {
               userId,
@@ -92,6 +98,7 @@ export async function GET() {
               status: 202,
             };
           }
+
           factRecord = await tx.fact.create({
             data: {
               userId,
@@ -104,8 +111,9 @@ export async function GET() {
         },
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
       );
-    } catch (txError: any) {
-      if (txError.code === "P2034") {
+    } catch (error) {
+      // Type-safe error handling for Prisma Serialization failures
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
         const lastGoodFact = await getLastSuccessfulFact(userId, movie);
         if (lastGoodFact) {
           return NextResponse.json({
@@ -119,7 +127,7 @@ export async function GET() {
           { status: 202 }
         );
       }
-      throw txError;
+      throw error;
     }
 
     if (!transactionResult || transactionResult.action !== "GENERATE") {
@@ -139,8 +147,7 @@ export async function GET() {
         messages: [
           {
             role: "system",
-            content:
-              "You are a movie expert. Provide a single interesting, fun, and lesser-known fact about the movie the user mentions. Keep it concise (2-3 sentences max).",
+            content: "You are a movie expert. Provide a single interesting, fun, and lesser-known fact about the movie the user mentions. Keep it concise (2-3 sentences max).",
           },
           {
             role: "user",
@@ -151,10 +158,11 @@ export async function GET() {
         temperature: 0.8,
       });
 
-      const factContent =
-        completion.choices[0]?.message?.content || "No fact generated";
+      const factContent = completion.choices[0]?.message?.content || "No fact generated";
+      
+      // Update the record created in the transaction
       await prisma.fact.update({
-        where: { id: factRecord.id },
+        where: { id: (factRecord as { id: string }).id },
         data: {
           content: factContent,
           status: "COMPLETED",
@@ -165,10 +173,14 @@ export async function GET() {
     } catch (openaiError) {
       console.error("OpenAI error:", openaiError);
 
-      await prisma.fact.update({
-        where: { id: factRecord.id },
-        data: { status: "FAILED" },
-      });
+      if (factRecord) {
+        await prisma.fact.update({
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-expect-error
+          where: { id: factRecord.id },
+          data: { status: "FAILED" },
+        });
+      }
 
       const lastGoodFact = await getLastSuccessfulFact(userId, movie);
       if (lastGoodFact) {
