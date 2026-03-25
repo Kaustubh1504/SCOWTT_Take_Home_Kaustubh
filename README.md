@@ -2,6 +2,8 @@
 
 Movie Memory is a full-stack Next.js application that leverages OpenAI to provide users with fun, lesser-known facts about their favorite movies. This project was built as part of a technical take-home exercise.
 
+# Live Deployed Link: https://movie-memory-lovat.vercel.app/
+
 ##  Setup Instructions
 
 ### 1\. Prerequisites
