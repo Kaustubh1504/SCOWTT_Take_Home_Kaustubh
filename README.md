@@ -4,6 +4,12 @@ Movie Memory is a full-stack Next.js application that leverages OpenAI to provid
 
 # Live Deployed Link: https://movie-memory-lovat.vercel.app/
 
+<div>
+  <video src="/public/demo.mov" width="100%" controls>
+    Your browser does not support the video tag.
+  </video>
+</div>
+
 ##  Setup Instructions
 
 ### 1\. Prerequisites
