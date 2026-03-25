@@ -65,24 +65,29 @@ The schema is modularized into multiple files under `prisma/schema/` for better 
   * **`Account/Session`**: Standard Auth.js models for Google OAuth integration.
 
 ### Backend Logic (Variant A Implementation)
-<img src="/public/movie_fact_api_flow.svg" alt="Alt text" width="100px" height="100px" />
+<img src="/public/movie_fact_api_flow.svg" alt="Alt text" width="500" />
 
 I chose **Variant A (Backend-Focused)** to demonstrate high-level consistency and concurrency control.
 
   * **60-Second Cache Window**: The system checks for existing `COMPLETED` facts for the specific user and movie within the last 60 seconds before triggering a new AI call.
   * **Burst Protection (Concurrency)**: To prevent multiple simultaneous OpenAI calls (e.g., from multiple tabs), the API uses a **Prisma transaction with `Serializable` isolation**. It creates a `PENDING` record as a "lock." If another request arrives while a fact is `PENDING`, the system returns a `202 Accepted` status or a previous cached fact.
   * **Failure Handling**: If the OpenAI API fails, the backend automatically scavenges the most recent successful fact from history to ensure the user still sees content.
-
+  * **Minimal Backend Tests** : A Vitest suite was implemented to enforce these guarantees . The tests verify that:
+    1. Unauthenticated users are blocked with a 401 status.
+    2. Data isolation is maintained by strictly querying via the authenticated user's ID.
+    3. The 60-second cache window is respected, bypassing OpenAI for recent records.
+    4. A database "lock" (PENDING status) is correctly created before any external API calls are made.
 -----
 
-## ⚖️ Key Tradeoffs
+
+##  Key Tradeoffs
 
 1.  **Transaction Isolation Level**: I used `Serializable` isolation for the locking mechanism. While this ensures the highest level of correctness against race conditions, it can lead to serialization failures under extremely high write loads. I mitigated this by catching `P2034` errors and providing a fallback response.
 2.  **Server Actions vs. Route Handlers**: I used Server Actions for simple mutations like Sign Out but kept the Fact Generation in a standard Route Handler to allow the client-side `useEffect` and "Refresh" button to fetch data easily using standard browser `fetch`.
 
 -----
 
-## ⏳ If I Had 2 More Hours...
+##  If I Had 2 More Hours...
 
 1.  **In-Memory Caching (Redis)**: For high-scale production, I would move the "Generation Lock" from the database to Redis to reduce DB load and latency.
 2.  **Comprehensive Testing**: I would implement integration tests using Playwright to verify the end-to-end onboarding flow and Vitest for mocking the OpenAI failure states.
